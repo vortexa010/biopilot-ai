@@ -10,6 +10,25 @@
 ![Hackathon](https://img.shields.io/badge/Microsoft-Agents%20League%202026-purple)
 
 ---
+# 📸 Platform Preview
+
+## 🏠 Home Interface
+
+![Home](assets/home.png)
+
+---
+
+## 🧠 7-Agent Research Pipeline
+
+![Pipeline](assets/pipeline.png)
+
+---
+
+## 📄 Generated Research Report
+
+![Report](assets/report.png)
+
+---
 
 # 🚀 Overview
 
@@ -129,22 +148,6 @@ Output
 - PhD researchers
 - Research proposal generation
 - Hypothesis generation
-
----
-
-# 📸 Screenshots
-
-## Home
-
-(Add screenshot)
-
-## Research Pipeline
-
-(Add screenshot)
-
-## Generated Report
-
-(Add screenshot)
 
 ---
 

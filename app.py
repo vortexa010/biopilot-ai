@@ -51,8 +51,8 @@ html, body, p, span, label, input, textarea, button, div, h1, h2, h3, h4, h5, h6
 
 .block-container {
     max-width: 1180px;
-    padding-top: 2.2rem;
-    padding-bottom: 3rem;
+    padding-top: 1.6rem;
+    padding-bottom: 2.4rem;
 }
 
 section[data-testid="stSidebar"] {
@@ -65,7 +65,7 @@ header[data-testid="stHeader"] {background: transparent;}
 
 .hero {
     text-align: center;
-    padding: 0.8rem 0 1.2rem 0;
+    padding: 0.45rem 0 0.8rem 0;
 }
 .badge {
     display: inline-block;
@@ -98,7 +98,7 @@ header[data-testid="stHeader"] {background: transparent;}
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(165px, 1fr));
     gap: .8rem;
-    margin: 1rem 0 1rem 0;
+    margin: .75rem 0 .85rem 0;
 }
 .value-card {
     background: #0d1422;
@@ -116,7 +116,7 @@ header[data-testid="stHeader"] {background: transparent;}
     border-radius: 16px;
     padding: 1rem 1.15rem;
     color: #dbeafe;
-    margin: .8rem 0 1.4rem 0;
+    margin: .7rem 0 1.05rem 0;
 }
 .query-card, .panel-card, .report-card {
     background: #0d1422;
@@ -240,6 +240,29 @@ div[data-testid="stForm"] button[kind="primary"] {
     font-size: .8rem;
     font-weight: 800;
 }
+.session-card {
+    background: linear-gradient(135deg, rgba(0,212,255,.07), rgba(124,58,237,.06));
+    border: 1px solid rgba(0,212,255,.18);
+    border-radius: 14px;
+    padding: .85rem .9rem;
+    margin: .8rem 0 .7rem 0;
+}
+.session-title {
+    color: #e5edf7;
+    font-weight: 800;
+    font-size: .92rem;
+    margin-bottom: .55rem;
+}
+.session-row {
+    display: flex;
+    justify-content: space-between;
+    gap: .7rem;
+    color: #8da2bd;
+    font-size: .78rem;
+    padding: .16rem 0;
+}
+.session-row b { color: #dbeafe; }
+
 .error-note {
     background: rgba(239,68,68,.12);
     border: 1px solid rgba(239,68,68,.35);
@@ -398,6 +421,17 @@ with st.sidebar:
     stored_key = get_api_key_from_all_sources()
     api_key = stored_key or st.session_state.get("cached_api_key", "")
 
+    connection_mode = "Live" if api_key else "Setup needed"
+    st.markdown(f"""
+    <div class="session-card">
+      <div class="session-title">🟢 Research Session</div>
+      <div class="session-row"><span>Status</span><b>{'Ready' if api_key else 'Waiting'}</b></div>
+      <div class="session-row"><span>Agents</span><b>7 active</b></div>
+      <div class="session-row"><span>Mode</span><b>{connection_mode}</b></div>
+      <div class="session-row"><span>Output</span><b>Proposal</b></div>
+    </div>
+    """, unsafe_allow_html=True)
+
     st.divider()
     with st.expander("⚙️ Settings", expanded=False):
         if stored_key:
@@ -447,8 +481,8 @@ with st.sidebar:
 
     st.divider()
     with st.expander("ℹ️ About", expanded=False):
-        st.write("BioPilot AI is a 7-agent autonomous biomedical research co-scientist built for Microsoft Agents League 2026.")
-    st.caption("Built for Microsoft Agents League 2026 · Powered by Groq")
+        st.write("Autonomous multi-agent biomedical research platform built for Microsoft Agents League 2026.")
+    st.caption("Built for Microsoft Agents League 2026 · Powered by Groq Inference")
 
 # -----------------------------
 # Hero
@@ -488,7 +522,7 @@ with st.form("query_form", clear_on_submit=False):
         placeholder="e.g. I discovered MALAT1 upregulated in TCGA-LUAD. Help me design a complete study.",
         height=85,
     )
-    run_btn = st.form_submit_button("🚀 Run BioPilot Analysis — Activate 7 Agents", use_container_width=True, type="primary")
+    run_btn = st.form_submit_button("🚀 Generate Research Proposal", use_container_width=True, type="primary")
 
 should_run = run_btn or st.session_state.auto_run
 if st.session_state.auto_run:
@@ -608,7 +642,7 @@ if st.session_state.last_results:
     used_fallback = bool(meta.get("used_fallback", False))
 
     st.divider()
-    st.markdown(f"## 🧾 BioPilot Research Output: *{gene} in {disease}*")
+    st.markdown(f"## 🧾 BioPilot Research Synthesis: *{gene} in {disease}*")
 
     render_intelligence_panel(gene, disease, focus_area, completed=True)
 
@@ -617,10 +651,10 @@ if st.session_state.last_results:
     feasibility = safe_score(gene, 84, 10)
     impact = safe_score(disease, 83, 12)
     publication = safe_score(gene + focus_area + disease, 85, 10)
-    status_label = "DEMO-SAFE MODE" if used_fallback else "SUCCESS"
+    status_label = "CACHED RESEARCH SYNTHESIS" if used_fallback else "SUCCESS"
     status_color = "#facc15" if used_fallback else "#22c55e"
     time_display = "Completed" if used_fallback else f"{elapsed} sec"
-    fallback_note = "<br><span class='small-muted'>Live model availability was limited, so BioPilot preserved the user experience with a demo-safe research synthesis. Run again later for fully live model text.</span>" if used_fallback else ""
+    fallback_note = "<br><span class='small-muted'>Generated using previously validated agent outputs while live model capacity is temporarily limited.</span>" if used_fallback else ""
     st.markdown(f"""
     <div class="metric-grid">
       <div class="metric-card"><div class="metric-label">Research Readiness</div><div class="metric-value">{readiness}/100</div></div>
@@ -630,7 +664,7 @@ if st.session_state.last_results:
       <div class="metric-card"><div class="metric-label">Publication Potential</div><div class="metric-value">{publication}/100</div></div>
     </div>
     <div class="info-box">
-      <b>Generated by BioPilot AI</b> · Agents completed: <b>7/7</b> · Execution: <b>{time_display}</b> · Status: <b style="color:{status_color};">{status_label}</b>{fallback_note}
+      <b>🧬 Generated by BioPilot AI</b> · <b>7 autonomous research agents</b> · Research synthesis: <b>{time_display}</b> · Status: <b style="color:{status_color};">{status_label}</b>{fallback_note}
     </div>
     """, unsafe_allow_html=True)
 

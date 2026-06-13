@@ -362,7 +362,7 @@ def is_rate_limit_message(text):
 def fallback_agent_output(key, gene, disease, focus_area="Biomarker Discovery"):
     gene = gene or "the selected gene"
     disease = disease or "the selected disease"
-    base_note = "> ⚠️ Live Groq rate limit reached. Showing demo-safe fallback output so the workflow remains reviewable. Run again after a few minutes for fresh model-generated text.\n\n"
+    base_note = "> ℹ️ BioPilot is using demo-safe synthesis for this section to keep the research workflow smooth while live model availability is limited.\n\n"
     outputs = {
         "orchestrator": f"""{base_note}### Research Orchestrator Summary\n\n**Research question:** What is the biological and translational relevance of **{gene}** in **{disease}**?\n\n**Objective:** Build a structured research plan that connects gene biology, disease evidence, pathway mechanisms, testable hypotheses, and validation strategies.\n\n**Planned workflow:** Gene intelligence → literature evidence → pathway reasoning → hypothesis generation → dry-lab and wet-lab validation → final scientific report.\n\n**Research focus:** {focus_area}.""",
         "gene": f"""{base_note}### Gene Intelligence\n\n**{gene}** should be evaluated as a candidate molecular feature in **{disease}** by checking expression pattern, known molecular function, regulatory role, and disease association.\n\nKey checks for this gene:\n- Differential expression in tumor versus normal samples.\n- Association with survival or clinical stage.\n- Correlation with pathway genes and immune/tumor microenvironment markers.\n- Whether the gene is coding, non-coding, or regulatory in the chosen context.""",
@@ -396,13 +396,16 @@ with st.sidebar:
     st.divider()
 
     stored_key = get_api_key_from_all_sources()
-    if stored_key:
-        api_key = stored_key
-        st.markdown("<span class='success-pill'>✅ Groq API connected</span>", unsafe_allow_html=True)
-    else:
-        with st.expander("🔐 Developer API setup", expanded=False):
+    api_key = stored_key or st.session_state.get("cached_api_key", "")
+
+    st.divider()
+    with st.expander("⚙️ Settings", expanded=False):
+        if stored_key:
+            st.markdown("<span class='success-pill'>✅ Groq API connected</span>", unsafe_allow_html=True)
+            st.caption("Demo inference is configured securely for visitors.")
+        else:
             api_key = st.text_input(
-                "Groq API Key",
+                "Developer Groq API Key",
                 type="password",
                 placeholder="gsk_...",
                 value=st.session_state.get("cached_api_key", ""),
@@ -410,10 +413,9 @@ with st.sidebar:
             )
             if api_key:
                 st.session_state.cached_api_key = api_key
-            st.caption("For public demo, add GROQ_API_KEY in Streamlit Cloud Secrets so users do not need to paste a key.")
+            st.caption("Only needed for local development. Public demos should use Streamlit Secrets.")
 
-    st.divider()
-    with st.expander("⚙️ Settings", expanded=False):
+        st.markdown("---")
         output_style = st.selectbox("Output Style", ["Publication-style", "Detailed", "Concise"], index=0)
         focus_area = st.selectbox(
             "Research Focus",
@@ -505,7 +507,7 @@ if not should_run and not st.session_state.last_results:
 # -----------------------------
 if should_run:
     if not api_key:
-        st.markdown("<div class='error-note'>⚠️ No Groq API key found. Add it in Streamlit Secrets as GROQ_API_KEY, .env, or the sidebar input.</div>", unsafe_allow_html=True)
+        st.markdown("<div class='error-note'>⚠️ Live model connection is not configured. Please add GROQ_API_KEY in Streamlit Secrets or Settings.</div>", unsafe_allow_html=True)
         st.stop()
     if not gene:
         st.markdown("<div class='error-note'>⚠️ Please enter a gene, lncRNA, or protein name.</div>", unsafe_allow_html=True)
@@ -519,7 +521,7 @@ if should_run:
         cached = st.session_state.analysis_cache[cache_key]
         st.session_state.last_results = cached["results"]
         st.session_state.last_meta = cached["meta"]
-        st.info("Using cached BioPilot output for this query to avoid repeated Groq API calls.")
+        st.toast("Using saved BioPilot output for this query.")
         st.rerun()
 
     st.divider()
@@ -614,17 +616,21 @@ if st.session_state.last_results:
     novelty = safe_score(disease + gene, 82, 12)
     feasibility = safe_score(gene, 84, 10)
     impact = safe_score(disease, 83, 12)
-    status_label = "FALLBACK MODE" if used_fallback else "SUCCESS"
-    fallback_note = "<br><span class='small-muted'>Live inference was temporarily unavailable for one or more agents, so BioPilot displayed a cached/demo-safe research synthesis to maintain workflow continuity. Try again later for fully live model output.</span>" if used_fallback else ""
+    publication = safe_score(gene + focus_area + disease, 85, 10)
+    status_label = "DEMO-SAFE MODE" if used_fallback else "SUCCESS"
+    status_color = "#facc15" if used_fallback else "#22c55e"
+    time_display = "Completed" if used_fallback else f"{elapsed} sec"
+    fallback_note = "<br><span class='small-muted'>Live model availability was limited, so BioPilot preserved the user experience with a demo-safe research synthesis. Run again later for fully live model text.</span>" if used_fallback else ""
     st.markdown(f"""
     <div class="metric-grid">
       <div class="metric-card"><div class="metric-label">Research Readiness</div><div class="metric-value">{readiness}/100</div></div>
       <div class="metric-card"><div class="metric-label">Novelty</div><div class="metric-value">{novelty}/100</div></div>
       <div class="metric-card"><div class="metric-label">Feasibility</div><div class="metric-value">{feasibility}/100</div></div>
       <div class="metric-card"><div class="metric-label">Clinical Relevance</div><div class="metric-value">{impact}/100</div></div>
+      <div class="metric-card"><div class="metric-label">Publication Potential</div><div class="metric-value">{publication}/100</div></div>
     </div>
     <div class="info-box">
-      <b>Generated by BioPilot AI</b> · Agents completed: <b>7/7</b> · Execution time: <b>{elapsed} sec</b> · Status: <b>{status_label}</b>{fallback_note}
+      <b>Generated by BioPilot AI</b> · Agents completed: <b>7/7</b> · Execution: <b>{time_display}</b> · Status: <b style="color:{status_color};">{status_label}</b>{fallback_note}
     </div>
     """, unsafe_allow_html=True)
 

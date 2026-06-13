@@ -51,7 +51,7 @@ html, body, p, span, label, input, textarea, button, div, h1, h2, h3, h4, h5, h6
 
 .block-container {
     max-width: 1180px;
-    padding-top: 1.6rem;
+    padding-top: 1.05rem;
     padding-bottom: 2.4rem;
 }
 
@@ -63,9 +63,34 @@ section[data-testid="stSidebar"] {
 #MainMenu, footer {visibility: hidden;}
 header[data-testid="stHeader"] {background: transparent;}
 
+/* Tighten sidebar spacing without changing layout */
+section[data-testid="stSidebar"] hr {
+    margin-top: .85rem !important;
+    margin-bottom: .85rem !important;
+    border-color: #1f2a3a !important;
+}
+section[data-testid="stSidebar"] .block-container {
+    padding-top: 1.15rem !important;
+}
+
+/* Premium primary action button only inside the form */
+div[data-testid="stForm"] button[kind="primary"] {
+    background: linear-gradient(120deg, #12c9f5, #7c3aed) !important;
+    border: none !important;
+    color: white !important;
+    font-weight: 800 !important;
+    border-radius: 12px !important;
+    padding: .72rem 1rem !important;
+    box-shadow: 0 0 0 rgba(124,58,237,0) !important;
+}
+div[data-testid="stForm"] button[kind="primary"]:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 0 20px rgba(124,58,237,.28) !important;
+}
+
 .hero {
     text-align: center;
-    padding: 0.45rem 0 0.8rem 0;
+    padding: 0.18rem 0 0.55rem 0;
 }
 .badge {
     display: inline-block;
@@ -98,7 +123,7 @@ header[data-testid="stHeader"] {background: transparent;}
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(165px, 1fr));
     gap: .8rem;
-    margin: .75rem 0 .85rem 0;
+    margin: .55rem 0 .7rem 0;
 }
 .value-card {
     background: #0d1422;
@@ -116,7 +141,7 @@ header[data-testid="stHeader"] {background: transparent;}
     border-radius: 16px;
     padding: 1rem 1.15rem;
     color: #dbeafe;
-    margin: .7rem 0 1.05rem 0;
+    margin: .55rem 0 .9rem 0;
 }
 .query-card, .panel-card, .report-card {
     background: #0d1422;
@@ -213,12 +238,7 @@ header[data-testid="stHeader"] {background: transparent;}
     color: #15d5ff;
     background: rgba(0, 212, 255, .06);
 }
-div[data-testid="stForm"] button[kind="primary"] {
-    background: linear-gradient(120deg, #12c9f5, #7c3aed) !important;
-    border: none !important;
-    color: white !important;
-    font-weight: 800 !important;
-}
+/* Primary form button is styled above; kept centralized for safety. */
 .stTextInput input, .stTextArea textarea {
     background: #0a1020 !important;
     color: #e5edf7 !important;

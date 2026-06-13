@@ -278,6 +278,12 @@ if "last_results" not in st.session_state:
     st.session_state.last_results = None
 if "last_meta" not in st.session_state:
     st.session_state.last_meta = None
+if "analysis_cache" not in st.session_state:
+    st.session_state.analysis_cache = {}
+if "cached_api_key" not in st.session_state:
+    st.session_state.cached_api_key = ""
+if "used_fallback" not in st.session_state:
+    st.session_state.used_fallback = False
 
 def set_example(gene, disease, custom=""):
     st.session_state.gene = gene
@@ -342,6 +348,35 @@ def run_one_agent(key, module, api_key, gene, disease, custom, literature_out, r
         return module.run(api_key, gene, disease, ctx)
     return module.run(api_key, gene, disease)
 
+
+def is_rate_limit_message(text):
+    msg = str(text).lower()
+    return (
+        "rate limit" in msg
+        or "rate_limit" in msg
+        or "too many requests" in msg
+        or "429" in msg
+        or "quota" in msg
+    )
+
+def fallback_agent_output(key, gene, disease, focus_area="Biomarker Discovery"):
+    gene = gene or "the selected gene"
+    disease = disease or "the selected disease"
+    base_note = "> ⚠️ Live Groq rate limit reached. Showing demo-safe fallback output so the workflow remains reviewable. Run again after a few minutes for fresh model-generated text.\n\n"
+    outputs = {
+        "orchestrator": f"""{base_note}### Research Orchestrator Summary\n\n**Research question:** What is the biological and translational relevance of **{gene}** in **{disease}**?\n\n**Objective:** Build a structured research plan that connects gene biology, disease evidence, pathway mechanisms, testable hypotheses, and validation strategies.\n\n**Planned workflow:** Gene intelligence → literature evidence → pathway reasoning → hypothesis generation → dry-lab and wet-lab validation → final scientific report.\n\n**Research focus:** {focus_area}.""",
+        "gene": f"""{base_note}### Gene Intelligence\n\n**{gene}** should be evaluated as a candidate molecular feature in **{disease}** by checking expression pattern, known molecular function, regulatory role, and disease association.\n\nKey checks for this gene:\n- Differential expression in tumor versus normal samples.\n- Association with survival or clinical stage.\n- Correlation with pathway genes and immune/tumor microenvironment markers.\n- Whether the gene is coding, non-coding, or regulatory in the chosen context.""",
+        "literature": f"""{base_note}### Literature Intelligence\n\nThe evidence review should focus on whether **{gene}** has been previously linked to **{disease}**, whether findings are consistent across studies, and what knowledge gaps remain.\n\nRecommended evidence categories:\n- Expression and prognosis studies.\n- Functional experiments such as knockdown/overexpression.\n- Pathway or network-level findings.\n- Conflicting or underexplored mechanisms.\n\n**Gap:** A strong hackathon-grade research proposal should identify not only what is known, but what remains testable and clinically meaningful.""",
+        "pathway": f"""{base_note}### Pathway and Network Interpretation\n\nFor **{gene}** in **{disease}**, prioritize pathways related to:\n- Cell proliferation and apoptosis.\n- DNA damage response or genomic stability, if relevant.\n- EMT, invasion, migration, and metastasis.\n- Immune signaling and tumor microenvironment.\n- Drug resistance or therapeutic response.\n\nA practical next step is to perform correlation analysis, enrichment analysis, and network visualization using candidate co-expressed genes.""",
+        "hypothesis": f"""{base_note}### Hypotheses\n\n**Hypothesis 1 — Biomarker role**\n{gene} expression or alteration is associated with disease aggressiveness in {disease}.\n**Confidence:** 82/100.\n**Rationale:** Candidate genes with disease-linked expression patterns can often stratify tumor behavior.\n\n**Hypothesis 2 — Mechanistic role**\n{gene} influences {disease} progression through pathway-level regulation of proliferation, survival, or invasion.\n**Confidence:** 78/100.\n**Rationale:** A regulatory mechanism can be tested through perturbation and downstream pathway readouts.\n\n**Hypothesis 3 — Translational role**\n{gene} may improve patient stratification when combined with clinical variables or pathway signatures.\n**Confidence:** 75/100.\n**Rationale:** Multi-feature signatures are often more robust than single-gene markers.""",
+        "experiment": f"""{base_note}### Experimental Design\n\n**Dry-lab validation**\n1. Differential expression analysis in public cohorts.\n2. Survival analysis and clinical association.\n3. Correlation analysis with pathway genes.\n4. GO/KEGG/Reactome enrichment.\n5. WGCNA or network-based prioritization.\n\n**Wet-lab validation**\n1. qPCR to confirm expression changes.\n2. siRNA/shRNA or CRISPR perturbation.\n3. Functional assays for proliferation, apoptosis, migration, and invasion.\n4. Rescue experiment to support specificity.\n5. RNA-FISH or cellular localization study if the target is a lncRNA.\n\n**Expected result:** A validated mechanism linking {gene} to {disease} biology and translational potential.""",
+        "report": f"""{base_note}### Scientific Report\n\nThis proposal investigates **{gene}** in **{disease}** as a candidate molecular feature with potential value in **{focus_area}**. BioPilot AI recommends a staged workflow: first establish computational evidence from expression, survival, and pathway analyses; then test mechanistic relevance through perturbation experiments; finally evaluate translational potential using independent cohorts.\n\n**Impact:** If validated, this study could support biomarker discovery, mechanistic insight, and future experimental development in {disease}.\n\n**Final recommendation:** Proceed with a focused pilot study using public transcriptomic datasets followed by targeted experimental validation.""",
+    }
+    return outputs.get(key, base_note + f"Fallback output for {gene} in {disease}.")
+
+def make_cache_key(gene, disease, custom, focus_area, output_style, hypothesis_count, report_depth):
+    return "|".join([gene.strip().lower(), disease.strip().lower(), custom.strip().lower(), focus_area, output_style, str(hypothesis_count), report_depth])
+
 PIPELINE = [
     ("orchestrator", "🧠", "Research Orchestrator", orchestrator),
     ("gene", "🔬", "Gene Intelligence", gene_agent),
@@ -367,7 +402,15 @@ with st.sidebar:
         with st.expander("🔐 API details", expanded=False):
             st.caption("Key loaded from Streamlit Secrets or .env. You do not need to paste it each time.")
     else:
-        api_key = st.text_input("Groq API Key", type="password", placeholder="gsk_...")
+        api_key = st.text_input(
+            "Groq API Key",
+            type="password",
+            placeholder="gsk_...",
+            value=st.session_state.get("cached_api_key", ""),
+            key="api_key_input",
+        )
+        if api_key:
+            st.session_state.cached_api_key = api_key
         st.caption("Tip: on Streamlit Cloud, add GROQ_API_KEY in Manage app → Settings → Secrets.")
 
     st.divider()
@@ -469,6 +512,14 @@ if should_run:
         st.markdown("<div class='error-note'>⚠️ Please enter a disease or biological condition. This avoids generic outputs like 'selected disease context'.</div>", unsafe_allow_html=True)
         st.stop()
 
+    cache_key = make_cache_key(gene, disease, custom, focus_area, output_style, hypothesis_count, report_depth)
+    if cache_key in st.session_state.analysis_cache:
+        cached = st.session_state.analysis_cache[cache_key]
+        st.session_state.last_results = cached["results"]
+        st.session_state.last_meta = cached["meta"]
+        st.info("Using cached BioPilot output for this query to avoid repeated Groq API calls.")
+        st.rerun()
+
     st.divider()
     st.markdown(f"## 📋 Research Report: *{gene} in {disease}*")
 
@@ -476,6 +527,7 @@ if should_run:
     results = {}
     statuses = {k: "wait" for k, *_ in PIPELINE}
     literature_out = ""
+    used_fallback = False
 
     left, right = st.columns([0.95, 1.55], gap="large")
     with left:
@@ -494,13 +546,21 @@ if should_run:
         progress_panel.markdown(agent_progress_html(statuses), unsafe_allow_html=True)
 
         try:
+            # Small pause reduces the chance of free-tier rate limits during 7 sequential agent calls.
+            time.sleep(0.8)
             out = run_one_agent(key, module, api_key, gene, disease, custom, literature_out, results)
+            if is_rate_limit_message(out):
+                used_fallback = True
+                out = fallback_agent_output(key, gene, disease, focus_area)
         except Exception as e:
             err_msg = str(e)
             if "invalid_api_key" in err_msg.lower() or "invalid api key" in err_msg.lower() or "401" in err_msg:
                 out = "❌ Invalid API key. Please update your GROQ_API_KEY in Streamlit Secrets or .env and reboot the app."
             elif "model_decommissioned" in err_msg.lower() or "decommissioned" in err_msg.lower():
                 out = "❌ The selected Groq model is no longer supported. Update config/settings.py to a current Groq model such as llama-3.3-70b-versatile."
+            elif is_rate_limit_message(err_msg):
+                used_fallback = True
+                out = fallback_agent_output(key, gene, disease, focus_area)
             else:
                 out = f"❌ Agent error: {err_msg}"
 
@@ -524,6 +584,11 @@ if should_run:
         "report_depth": report_depth,
         "elapsed": elapsed,
         "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "used_fallback": used_fallback,
+    }
+    st.session_state.analysis_cache[cache_key] = {
+        "results": results,
+        "meta": st.session_state.last_meta,
     }
 
 # -----------------------------
@@ -536,6 +601,7 @@ if st.session_state.last_results:
     disease = meta.get("disease", disease)
     elapsed = meta.get("elapsed", "--")
     focus_area = meta.get("focus_area", focus_area)
+    used_fallback = bool(meta.get("used_fallback", False))
 
     st.divider()
     st.markdown(f"## 🧾 BioPilot Research Output: *{gene} in {disease}*")
@@ -546,6 +612,8 @@ if st.session_state.last_results:
     novelty = safe_score(disease + gene, 82, 12)
     feasibility = safe_score(gene, 84, 10)
     impact = safe_score(disease, 83, 12)
+    status_label = "FALLBACK MODE" if used_fallback else "SUCCESS"
+    fallback_note = "<br><span class='small-muted'>Live Groq rate limit was reached for one or more agents, so BioPilot used demo-safe fallback outputs. Try again after a few minutes for fully live model output.</span>" if used_fallback else ""
     st.markdown(f"""
     <div class="metric-grid">
       <div class="metric-card"><div class="metric-label">Research Readiness</div><div class="metric-value">{readiness}/100</div></div>
@@ -554,7 +622,7 @@ if st.session_state.last_results:
       <div class="metric-card"><div class="metric-label">Clinical Relevance</div><div class="metric-value">{impact}/100</div></div>
     </div>
     <div class="info-box">
-      <b>Generated by BioPilot AI</b> · Agents completed: <b>7/7</b> · Execution time: <b>{elapsed} sec</b> · Status: <b>SUCCESS</b>
+      <b>Generated by BioPilot AI</b> · Agents completed: <b>7/7</b> · Execution time: <b>{elapsed} sec</b> · Status: <b>{status_label}</b>{fallback_note}
     </div>
     """, unsafe_allow_html=True)
 

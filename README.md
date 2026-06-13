@@ -1,6 +1,6 @@
 # 🧬 BioPilot AI
 
-> **AI Research Copilot for Biomedical Discovery**
+> **Autonomous Multi-Agent Biomedical Research Co-Scientist**
 >
 > Transform a single **gene + disease query** into a complete biomedical research proposal using multiple AI agents.
 

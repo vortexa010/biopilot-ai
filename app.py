@@ -96,7 +96,7 @@ header[data-testid="stHeader"] {background: transparent;}
 }
 .value-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(165px, 1fr));
     gap: .8rem;
     margin: 1rem 0 1rem 0;
 }
@@ -133,7 +133,7 @@ header[data-testid="stHeader"] {background: transparent;}
 }
 .metric-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(165px, 1fr));
     gap: .8rem;
     margin-bottom: 1rem;
 }
@@ -400,18 +400,19 @@ with st.sidebar:
         api_key = stored_key
         st.markdown("<span class='success-pill'>✅ Groq API connected</span>", unsafe_allow_html=True)
         with st.expander("🔐 API details", expanded=False):
-            st.caption("Key loaded from Streamlit Secrets or .env. You do not need to paste it each time.")
+            st.caption("Demo key is configured securely. Users can run the app without pasting anything.")
     else:
-        api_key = st.text_input(
-            "Groq API Key",
-            type="password",
-            placeholder="gsk_...",
-            value=st.session_state.get("cached_api_key", ""),
-            key="api_key_input",
-        )
-        if api_key:
-            st.session_state.cached_api_key = api_key
-        st.caption("Tip: on Streamlit Cloud, add GROQ_API_KEY in Manage app → Settings → Secrets.")
+        with st.expander("🔐 Developer API setup", expanded=False):
+            api_key = st.text_input(
+                "Groq API Key",
+                type="password",
+                placeholder="gsk_...",
+                value=st.session_state.get("cached_api_key", ""),
+                key="api_key_input",
+            )
+            if api_key:
+                st.session_state.cached_api_key = api_key
+            st.caption("For public demo, add GROQ_API_KEY in Streamlit Cloud Secrets so users do not need to paste a key.")
 
     st.divider()
     with st.expander("⚙️ Settings", expanded=False):
@@ -425,17 +426,17 @@ with st.sidebar:
         report_depth = st.selectbox("Report Depth", ["Standard", "Deep", "Short"], index=0)
 
     st.divider()
-    st.markdown("### ⚡ Quick Examples")
-    if st.button("🧬 MALAT1 + LUAD", use_container_width=True):
+    st.markdown("### ⚡ Examples")
+    if st.button("🫁 MALAT1 → Lung Adenocarcinoma", use_container_width=True):
         set_example("MALAT1", "Lung Adenocarcinoma", "Generate a research hypothesis and validation plan for MALAT1 in TCGA-LUAD.")
         st.rerun()
-    if st.button("🔬 TP53 + Breast Cancer", use_container_width=True):
+    if st.button("🧬 TP53 → Breast Cancer", use_container_width=True):
         set_example("TP53", "Breast Cancer")
         st.rerun()
-    if st.button("💊 EGFR + Lung Cancer", use_container_width=True):
+    if st.button("🫁 EGFR → Lung Cancer", use_container_width=True):
         set_example("EGFR", "Lung Cancer")
         st.rerun()
-    if st.button("🧬 BRCA1 + Ovarian Cancer", use_container_width=True):
+    if st.button("🧬 BRCA1 → Ovarian Cancer", use_container_width=True):
         set_example("BRCA1", "Ovarian Cancer")
         st.rerun()
 
@@ -445,7 +446,10 @@ with st.sidebar:
         st.caption(f"{icon} {name}")
 
     st.divider()
-    st.caption("Built with GitHub Copilot-assisted development · Powered by Groq LLM inference")
+    with st.expander("ℹ️ About", expanded=False):
+        st.write("BioPilot AI is a 7-agent autonomous biomedical research co-scientist built for Microsoft Agents League 2026.")
+        st.write("Use the GitHub repository link in the hackathon submission or README, not as a distracting top-bar action inside the app.")
+    st.caption("Built for Microsoft Agents League 2026 · GitHub Copilot-assisted development · Powered by Groq")
 
 # -----------------------------
 # Hero
@@ -457,14 +461,15 @@ st.markdown(f"""
     <div class="hero-subtitle">{APP_SUBTITLE}</div>
 </div>
 <div class="value-grid">
-    <div class="value-card">Analyze genes</div>
-    <div class="value-card">Generate hypotheses</div>
-    <div class="value-card">Design experiments</div>
-    <div class="value-card">Create research reports</div>
+    <div class="value-card">🧬 Gene insight</div>
+    <div class="value-card">📚 Evidence synthesis</div>
+    <div class="value-card">💡 Hypothesis generation</div>
+    <div class="value-card">🧪 Experiment design</div>
+    <div class="value-card">📄 Research report</div>
 </div>
 <div class="info-box">
-    <b>What it does:</b> BioPilot AI converts a gene–disease question into a structured biomedical research plan using seven specialized AI agents.<br>
-    <span class="small-muted">Try <b>MALAT1 + Lung Adenocarcinoma</b> or choose a quick example from the sidebar.</span>
+    <b>From one gene and one disease, BioPilot AI creates a structured biomedical research proposal.</b><br>
+    <span class="small-muted">Enter a target such as <b>MALAT1 + Lung Adenocarcinoma</b>, or launch a ready example from the sidebar.</span>
 </div>
 """, unsafe_allow_html=True)
 
@@ -613,7 +618,7 @@ if st.session_state.last_results:
     feasibility = safe_score(gene, 84, 10)
     impact = safe_score(disease, 83, 12)
     status_label = "FALLBACK MODE" if used_fallback else "SUCCESS"
-    fallback_note = "<br><span class='small-muted'>Live Groq rate limit was reached for one or more agents, so BioPilot used demo-safe fallback outputs. Try again after a few minutes for fully live model output.</span>" if used_fallback else ""
+    fallback_note = "<br><span class='small-muted'>Live inference was temporarily unavailable for one or more agents, so BioPilot displayed a cached/demo-safe research synthesis to maintain workflow continuity. Try again later for fully live model output.</span>" if used_fallback else ""
     st.markdown(f"""
     <div class="metric-grid">
       <div class="metric-card"><div class="metric-label">Research Readiness</div><div class="metric-value">{readiness}/100</div></div>
@@ -634,6 +639,15 @@ if st.session_state.last_results:
     for tab, key in zip(tabs, keys):
         with tab:
             st.markdown(results.get(key, "No output available."))
+
+    st.markdown("### 🚀 Suggested Next Research Questions")
+    q1, q2 = st.columns(2)
+    with q1:
+        st.markdown(f"- Which pathways connect **{gene}** to **{disease}** progression?")
+        st.markdown(f"- Is **{gene}** prognostic in public patient cohorts?")
+    with q2:
+        st.markdown(f"- Which experiments would best validate **{gene}** function?")
+        st.markdown(f"- Could **{gene}** support biomarker or therapeutic discovery?")
 
     st.markdown("### 📥 Export Report")
     dc1, dc2 = st.columns(2)

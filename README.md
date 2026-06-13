@@ -10,27 +10,27 @@
 ![Hackathon](https://img.shields.io/badge/Microsoft-Agents%20League%202026-purple)
 
 ---
-# 📸 Platform Preview
+#  Platform Preview
 
-## 🏠 Home Interface
+##  Home Interface
 
 ![Home](assets/home.png)
 
 ---
 
-## 🧠 7-Agent Research Pipeline
+##  7-Agent Research Pipeline
 
 ![Pipeline](assets/pipeline.png)
 
 ---
 
-## 📄 Generated Research Report
+## Generated Research Report
 
 ![Report](assets/report.png)
 
 ---
 
-# 🚀 Overview
+#  Overview
 
 BioPilot AI is an autonomous multi-agent biomedical research platform designed to accelerate early-stage scientific discovery.
 
@@ -57,7 +57,7 @@ BioPilot AI generates:
 
 ---
 
-# ✨ Features
+# Features
 
 ✅ Multi-agent AI architecture
 
@@ -77,7 +77,7 @@ BioPilot AI generates:
 
 ---
 
-# 🧠 7-Agent Architecture
+# 7-Agent Architecture
 
 ```
 
@@ -102,7 +102,7 @@ Each AI agent specializes in a different stage of biomedical research and collab
 
 ---
 
-# 🔬 Example Workflow
+# Example Workflow
 
 Input
 

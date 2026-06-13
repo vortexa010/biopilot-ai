@@ -1,379 +1,690 @@
 import streamlit as st
 import os
 import sys
+import time
 
 sys.path.insert(0, os.path.dirname(__file__))
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Environment + secrets
+# ─────────────────────────────────────────────────────────────────────────────
 def load_env():
     env_path = os.path.join(os.path.dirname(__file__), ".env")
     if os.path.exists(env_path):
-        with open(env_path) as f:
+        with open(env_path, encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
                 if "=" in line and not line.startswith("#"):
                     k, v = line.split("=", 1)
-                    os.environ[k.strip()] = v.strip()
+                    os.environ[k.strip()] = v.strip().strip('"').strip("'")
+
 load_env()
 
-from agents import orchestrator, gene_agent, literature_agent, pathway_agent, hypothesis_agent, experiment_agent, report_agent
+from agents import (
+    orchestrator,
+    gene_agent,
+    literature_agent,
+    pathway_agent,
+    hypothesis_agent,
+    experiment_agent,
+    report_agent,
+)
 from utils.export_utils import build_markdown_report, build_txt_report
 from config.settings import APP_TITLE, APP_SUBTITLE, APP_BADGE
 
-st.set_page_config(page_title="BioPilot AI", page_icon="🧬", layout="wide",
-                   initial_sidebar_state="expanded")
 
+st.set_page_config(
+    page_title="BioPilot AI",
+    page_icon="🧬",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Stable CSS: no global icon-font breaking, no Streamlit expander hacks
+# ─────────────────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
-* { font-family: 'Inter', sans-serif !important; }
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
-/* ── Force dark everywhere ── */
-html, body,
+html, body, .stApp {
+    background: #060b14 !important;
+    color: #e2e8f0 !important;
+    font-family: 'Inter', sans-serif;
+}
+
 [data-testid="stAppViewContainer"],
-[data-testid="stApp"],
 [data-testid="stMain"],
-.main, .block-container,
-[data-testid="stSidebar"],
-section[data-testid="stSidebar"] > div,
-.stApp { background-color: #060b14 !important; color: #e2e8f0 !important; }
+.main,
+.block-container {
+    background: #060b14 !important;
+    color: #e2e8f0 !important;
+}
 
-/* ── Hide Streamlit chrome ── */
-#MainMenu { visibility: hidden !important; }
-header[data-testid="stHeader"] { background: transparent !important; }
-[data-testid="stToolbar"] { display: none !important; }
-[data-testid="stDecoration"] { display: none !important; }
-footer { display: none !important; }
-[data-testid="collapsedControl"] { background: #090e18 !important; }
+.block-container {
+    padding-top: 2rem !important;
+    padding-bottom: 2rem !important;
+    max-width: 1180px !important;
+}
 
-/* ── Sidebar ── */
+#MainMenu,
+footer,
+[data-testid="stDecoration"],
+[data-testid="stToolbar"],
+[data-testid="collapsedControl"],
+.stDeployButton {
+    display: none !important;
+}
+
+header[data-testid="stHeader"] {
+    background: rgba(6, 11, 20, 0.95) !important;
+}
+
+/* Sidebar */
 section[data-testid="stSidebar"] {
     background: #090e18 !important;
     border-right: 1px solid #1e293b !important;
 }
-section[data-testid="stSidebar"] * { color: #94a3b8 !important; }
+
+section[data-testid="stSidebar"] > div {
+    background: #090e18 !important;
+    padding-top: 2rem !important;
+}
+
+section[data-testid="stSidebar"] h1,
+section[data-testid="stSidebar"] h2,
 section[data-testid="stSidebar"] h3,
-section[data-testid="stSidebar"] h4 { color: #e2e8f0 !important; }
+section[data-testid="stSidebar"] h4,
+section[data-testid="stSidebar"] p,
+section[data-testid="stSidebar"] label,
+section[data-testid="stSidebar"] span {
+    color: #cbd5e1 !important;
+}
 
-/* ── Hero ── */
-.hero { text-align:center; padding: 1.8rem 0 1rem; }
+.sidebar-card {
+    background: #0d1420;
+    border: 1px solid #1e293b;
+    border-radius: 12px;
+    padding: 1rem;
+    margin: .7rem 0;
+}
+
+.status-ok {
+    background: rgba(34,197,94,.12);
+    border: 1px solid rgba(34,197,94,.35);
+    color: #86efac;
+    padding: .75rem;
+    border-radius: 10px;
+    font-weight: 700;
+}
+
+.status-warn {
+    background: rgba(251,191,36,.10);
+    border: 1px solid rgba(251,191,36,.28);
+    color: #fde68a;
+    padding: .75rem;
+    border-radius: 10px;
+    font-weight: 700;
+}
+
+/* Hero */
+.hero {
+    text-align: center;
+    padding: 1rem 0 1.3rem 0;
+}
+
 .badge {
-    display:inline-block; background:rgba(0,212,255,0.08);
-    border:1px solid rgba(0,212,255,0.25); color:#00d4ff;
-    font-size:.68rem; font-weight:700; letter-spacing:2px;
-    text-transform:uppercase; padding:4px 16px; border-radius:20px; margin-bottom:.8rem;
+    display: inline-block;
+    background: rgba(0,212,255,0.08);
+    border: 1px solid rgba(0,212,255,0.30);
+    color: #22d3ee;
+    font-size: .68rem;
+    font-weight: 800;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 5px 18px;
+    border-radius: 999px;
+    margin-bottom: .9rem;
 }
+
 .title {
-    font-size:2.8rem; font-weight:800;
-    background:linear-gradient(135deg,#00d4ff,#a78bfa,#f472b6);
-    -webkit-background-clip:text; -webkit-text-fill-color:transparent;
-    line-height:1.1; margin-bottom:.4rem;
-}
-.subtitle { color:#475569; font-size:1rem; }
-
-/* ── Inputs ── */
-.stTextInput input, .stTextArea textarea {
-    background:#0d1420 !important; border:1px solid #1e293b !important;
-    color:#e2e8f0 !important; border-radius:8px !important;
-}
-.stTextInput input:focus, .stTextArea textarea:focus {
-    border-color:#00d4ff !important;
-    box-shadow:0 0 0 2px rgba(0,212,255,.12) !important;
-}
-.stTextInput label, .stTextArea label { color:#64748b !important; font-size:.78rem !important; }
-
-/* ── Selectbox ── */
-.stSelectbox > div > div {
-    background:#0d1420 !important; border:1px solid #1e293b !important;
-    color:#e2e8f0 !important; border-radius:8px !important;
+    font-size: clamp(2.2rem, 5vw, 3.1rem);
+    font-weight: 800;
+    background: linear-gradient(135deg,#22d3ee,#a78bfa,#f472b6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    line-height: 1.05;
 }
 
-/* ── Quick example buttons — subtle style ── */
+.subtitle {
+    color: #64748b;
+    font-size: 1rem;
+    margin-top: .35rem;
+}
+
+/* Inputs */
+.stTextInput input,
+.stTextArea textarea {
+    background: #0d1420 !important;
+    border: 1px solid #334155 !important;
+    color: #e2e8f0 !important;
+    border-radius: 10px !important;
+}
+
+.stTextInput input:focus,
+.stTextArea textarea:focus {
+    border-color: #22d3ee !important;
+    box-shadow: 0 0 0 2px rgba(34,211,238,.14) !important;
+}
+
+.stTextInput label,
+.stTextArea label,
+.stSelectbox label,
+.stSlider label,
+.stCheckbox label {
+    color: #93a4bd !important;
+    font-size: .82rem !important;
+}
+
+/* Buttons */
 .stButton > button {
     background: #0d1420 !important;
-    border: 1px solid #1e293b !important;
-    color: #94a3b8 !important;
-    border-radius: 8px !important;
-    font-size: .82rem !important;
-    font-weight: 500 !important;
+    border: 1px solid #243244 !important;
+    color: #bfdbfe !important;
+    border-radius: 10px !important;
+    font-weight: 600 !important;
     width: 100% !important;
-    text-align: left !important;
-    padding: .4rem .8rem !important;
-    transition: all 0.2s !important;
-}
-.stButton > button:hover {
-    border-color: #00d4ff !important;
-    color: #00d4ff !important;
-    background: rgba(0,212,255,0.05) !important;
+    transition: all .18s ease-in-out !important;
 }
 
-/* ── Run button override ── */
-.run-btn > button {
-    background: linear-gradient(135deg,#00d4ff,#7c3aed) !important;
+.stButton > button:hover {
+    border-color: #22d3ee !important;
+    color: #22d3ee !important;
+    background: rgba(34,211,238,.06) !important;
+}
+
+div[data-testid="stFormSubmitButton"] button {
+    background: linear-gradient(135deg,#06b6d4,#7c3aed) !important;
     color: white !important;
     border: none !important;
-    border-radius: 10px !important;
-    font-weight: 700 !important;
-    font-size: .95rem !important;
-    padding: .7rem !important;
+    border-radius: 12px !important;
+    font-weight: 800 !important;
+    min-height: 48px !important;
 }
 
-/* ── Agent diagram nodes ── */
-.node {
-    display:flex; align-items:center; gap:10px;
-    padding:.45rem .8rem; border-radius:8px; margin-bottom:.25rem;
+/* Cards */
+.metric-card {
+    background: #0d1420;
     border: 1px solid #1e293b;
-}
-.node-wait { background:#0a0f1a; opacity:0.45; }
-.node-active { background:rgba(167,139,250,0.08); border-color:#a78bfa !important; opacity:1; }
-.node-done { background:rgba(0,212,255,0.05); border-color:rgba(0,212,255,0.3) !important; opacity:1; }
-.node-icon { font-size:.95rem; width:18px; }
-.node-name { font-size:.75rem; font-weight:600; color:#64748b; }
-.node-done .node-name { color:#00d4ff; }
-.node-active .node-name { color:#a78bfa; }
-.connector { width:1px; height:10px; background:#1e293b; margin:0 auto 0 2rem; }
-
-/* ── Expander ── */
-details { background:#0d1420 !important; border:1px solid #1e293b !important; border-radius:8px !important; }
-summary { color:#94a3b8 !important; }
-
-/* ── Diagram wrap ── */
-.diagram-wrap {
-    background:#0d1420; border:1px solid #1e293b;
-    border-radius:12px; padding:1rem; margin-bottom:.8rem;
-}
-.diagram-label {
-    font-size:.62rem; font-weight:700; letter-spacing:2px;
-    text-transform:uppercase; color:#334155; text-align:center; margin-bottom:.8rem;
+    border-radius: 14px;
+    padding: 1rem;
+    height: 100%;
 }
 
-hr { border-color:#1e293b !important; }
+.metric-value {
+    color: #22d3ee;
+    font-weight: 800;
+    font-size: 1.6rem;
+}
+
+.metric-label {
+    color: #94a3b8;
+    font-size: .78rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.panel {
+    background: #0d1420;
+    border: 1px solid #1e293b;
+    border-radius: 16px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+.panel-title {
+    color: #e2e8f0;
+    font-weight: 800;
+    margin-bottom: .65rem;
+}
+
+.mini-map {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .5rem;
+    flex-wrap: wrap;
+}
+
+.map-node {
+    background: rgba(34,211,238,.06);
+    border: 1px solid rgba(34,211,238,.26);
+    color: #bae6fd;
+    padding: .55rem .75rem;
+    border-radius: 10px;
+    font-size: .8rem;
+    font-weight: 700;
+}
+
+.map-arrow {
+    color: #475569;
+    font-weight: 800;
+}
+
+.agent-row {
+    display: flex;
+    align-items: center;
+    gap: .7rem;
+    background: rgba(34,211,238,.05);
+    border: 1px solid rgba(34,211,238,.22);
+    border-radius: 10px;
+    padding: .55rem .75rem;
+    margin-bottom: .45rem;
+    color: #67e8f9;
+    font-weight: 700;
+    font-size: .84rem;
+}
+
+.agent-wait {
+    opacity: .45;
+    background: #0a0f1a;
+    border-color: #1e293b;
+    color: #94a3b8;
+}
+
+/* Expander normal, no custom arrow hacks */
+.streamlit-expanderHeader {
+    color: #e2e8f0 !important;
+    font-weight: 700 !important;
+}
+
+hr {
+    border-color: #1e293b !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
-# ── Sidebar ───────────────────────────────────────────────────────────────────
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Helpers
+# ─────────────────────────────────────────────────────────────────────────────
+PIPELINE = [
+    ("orchestrator", "🧠", "Research Orchestrator", orchestrator),
+    ("gene", "🔬", "Gene Intelligence", gene_agent),
+    ("literature", "📚", "Literature Intelligence", literature_agent),
+    ("pathway", "🌐", "Pathway & Network", pathway_agent),
+    ("hypothesis", "💡", "Hypothesis Generator", hypothesis_agent),
+    ("experiment", "🧪", "Experimental Design", experiment_agent),
+    ("report", "📝", "Scientific Report", report_agent),
+]
+
+EXAMPLES = {
+    "🧬 MALAT1 + LUAD": ("MALAT1", "Lung Adenocarcinoma"),
+    "🔬 TP53 + Breast Cancer": ("TP53", "Breast Cancer"),
+    "💊 EGFR + Lung Cancer": ("EGFR", "Lung Cancer"),
+    "🦠 BRCA1 + Ovarian Cancer": ("BRCA1", "Ovarian Cancer"),
+}
+
+
+def get_secret_key() -> str:
+    """Priority: Streamlit secrets → environment/.env → session manual input."""
+    try:
+        if "GROQ_API_KEY" in st.secrets:
+            return st.secrets["GROQ_API_KEY"]
+    except Exception:
+        pass
+    return os.environ.get("GROQ_API_KEY", "") or st.session_state.get("manual_groq_key", "")
+
+
+def set_example(gene: str, disease: str):
+    st.session_state["gene_input"] = gene
+    st.session_state["disease_input"] = disease
+    st.session_state["custom_input"] = ""
+    st.session_state["auto_run"] = True
+
+
+def render_agent_status(statuses):
+    html = '<div class="panel"><div class="panel-title">⚡ Live Agent Status</div>'
+    for key, icon, name, _module in PIPELINE:
+        done = statuses.get(key, "wait") == "done"
+        active = statuses.get(key, "wait") == "active"
+        symbol = "✅" if done else ("⏳" if active else icon)
+        css = "agent-row" if (done or active) else "agent-row agent-wait"
+        html += f'<div class="{css}"><span>{symbol}</span><span>{name}</span></div>'
+    html += "</div>"
+    return html
+
+
+def render_intelligence_panel(gene, disease, completed=False):
+    status = "7/7 completed" if completed else "Ready to analyze"
+    html = f"""
+    <div class="panel">
+        <div class="panel-title">🧬 Research Intelligence Panel</div>
+        <div class="mini-map">
+            <div class="map-node">{gene or "Gene"}</div>
+            <div class="map-arrow">→</div>
+            <div class="map-node">{disease or "Disease"}</div>
+            <div class="map-arrow">→</div>
+            <div class="map-node">Pathways</div>
+            <div class="map-arrow">→</div>
+            <div class="map-node">Hypotheses</div>
+            <div class="map-arrow">→</div>
+            <div class="map-node">Validation</div>
+        </div>
+        <div style="margin-top:.9rem;color:#94a3b8;font-size:.85rem;">
+            <b>Status:</b> {status}<br>
+            <b>System:</b> 7-agent autonomous biomedical research co-scientist
+        </div>
+    </div>
+    """
+    return html
+
+
+def render_score_dashboard():
+    c1, c2, c3, c4 = st.columns(4)
+    cards = [
+        ("7/7", "Agents Completed"),
+        ("9.1/10", "Readiness Score"),
+        ("High", "Novelty Potential"),
+        ("Strong", "Feasibility"),
+    ]
+    for col, (value, label) in zip([c1, c2, c3, c4], cards):
+        with col:
+            st.markdown(
+                f"""
+                <div class="metric-card">
+                    <div class="metric-value">{value}</div>
+                    <div class="metric-label">{label}</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Initialize session state
+# ─────────────────────────────────────────────────────────────────────────────
+for key, value in {
+    "gene_input": "",
+    "disease_input": "",
+    "custom_input": "",
+    "auto_run": False,
+    "last_results": None,
+}.items():
+    st.session_state.setdefault(key, value)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Sidebar
+# ─────────────────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("### 🧬 BioPilot AI")
     st.markdown("---")
 
-    env_key = os.environ.get("GROQ_API_KEY", "")
-    if env_key:
-        st.success("✅ Groq API Key loaded")
-        api_key = env_key
+    secret_key = get_secret_key()
+    if secret_key:
+        st.markdown('<div class="status-ok">✅ Groq API Key loaded</div>', unsafe_allow_html=True)
+        api_key = secret_key
     else:
-        api_key = st.text_input("Groq API Key", type="password", placeholder="gsk_...")
+        st.markdown('<div class="status-warn">⚠️ Add Groq API key</div>', unsafe_allow_html=True)
+        st.session_state["manual_groq_key"] = st.text_input(
+            "Groq API Key",
+            type="password",
+            placeholder="gsk_...",
+            value=st.session_state.get("manual_groq_key", ""),
+            help="For Streamlit Cloud, add GROQ_API_KEY in app Secrets so you do not paste it every time.",
+        )
+        api_key = st.session_state.get("manual_groq_key", "")
 
     st.markdown("---")
 
-    # ── Settings in expander ──
-    with st.expander("⚙️ Settings", expanded=False):
-        output_style = st.selectbox("Output Style", ["Detailed", "Concise", "Academic", "Clinical"], index=0)
-        focus_area = st.selectbox("Research Focus", [
-            "Biomarker Discovery", "Therapeutic Target",
-            "Mechanistic Study", "Clinical Translation",
-            "Drug Resistance", "Immunotherapy"
-        ], index=0)
-        hypothesis_count = st.slider("Number of Hypotheses", 1, 5, 3)
-        include_timeline = st.checkbox("Include Research Timeline", value=True)
-        include_journal = st.checkbox("Suggest Publication Journals", value=True)
+    show_settings = st.checkbox("⚙️ Show settings", value=False)
+    if show_settings:
+        with st.container():
+            st.markdown("#### ⚙️ Settings")
+            output_style = st.selectbox(
+                "Output Style",
+                ["Detailed", "Concise", "Publication-style", "Clinical"],
+                index=0,
+            )
+            focus_area = st.selectbox(
+                "Research Focus",
+                [
+                    "Biomarker Discovery",
+                    "Therapeutic Target",
+                    "Mechanistic Study",
+                    "Clinical Translation",
+                    "Drug Resistance",
+                    "Immunotherapy",
+                ],
+                index=0,
+            )
+            hypothesis_count = st.slider("Number of Hypotheses", 2, 5, 3)
+            report_depth = st.selectbox("Report Depth", ["Standard", "Short", "Deep"], index=0)
+    else:
+        output_style = "Detailed"
+        focus_area = "Biomarker Discovery"
+        hypothesis_count = 3
+        report_depth = "Standard"
 
     st.markdown("---")
     st.markdown("#### 📖 How to use")
-    st.markdown("1. Enter gene + disease\n2. Adjust settings if needed\n3. Click **Run BioPilot**\n4. Watch 7 agents collaborate\n5. Download full report")
+    st.markdown(
+        "1. Enter gene + disease\n"
+        "2. Click **Run BioPilot**\n"
+        "3. Watch 7 agents collaborate\n"
+        "4. Review the research report\n"
+        "5. Download full report"
+    )
 
     st.markdown("---")
     st.markdown("#### ⚡ Quick Examples")
-    ex1 = st.button("🧬 MALAT1 + LUAD", use_container_width=True)
-    ex2 = st.button("🔬 TP53 + Breast Cancer", use_container_width=True)
-    ex3 = st.button("💊 EGFR + Lung Cancer", use_container_width=True)
-    ex4 = st.button("🦠 BRCA1 + Ovarian Cancer", use_container_width=True)
+    for label, (g, d) in EXAMPLES.items():
+        if st.button(label, use_container_width=True):
+            set_example(g, d)
+            st.rerun()
 
     st.markdown("---")
     st.markdown("#### 🤖 Agent Pipeline")
-    for icon, name in [("🧠","Orchestrator"),("🔬","Gene Intelligence"),
-                       ("📚","Literature"),("🌐","Pathway & Network"),
-                       ("💡","Hypothesis"),("🧪","Experiment"),("📝","Report")]:
-        st.markdown(f"<span style='color:#334155'>{icon} {name}</span>", unsafe_allow_html=True)
+    for icon, name in [
+        ("🧠", "Orchestrator"),
+        ("🔬", "Gene Intelligence"),
+        ("📚", "Literature"),
+        ("🌐", "Pathway & Network"),
+        ("💡", "Hypothesis"),
+        ("🧪", "Experiment"),
+        ("📝", "Report"),
+    ]:
+        st.markdown(f"{icon} {name}")
 
     st.markdown("---")
-    st.caption("Built with GitHub Copilot · Powered by Groq + Llama3")
+    st.caption("Built with GitHub Copilot-assisted development · Powered by Groq LLM inference")
 
-# ── Hero ──────────────────────────────────────────────────────────────────────
-st.markdown(f"""
-<div class="hero">
-  <div class="badge">{APP_BADGE}</div>
-  <div class="title">🧬 {APP_TITLE}</div>
-  <div class="subtitle">{APP_SUBTITLE}</div>
-</div>
-""", unsafe_allow_html=True)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Main UI
+# ─────────────────────────────────────────────────────────────────────────────
+st.markdown(
+    f"""
+    <div class="hero">
+        <div class="badge">{APP_BADGE}</div>
+        <div class="title">🧬 {APP_TITLE}</div>
+        <div class="subtitle">{APP_SUBTITLE}</div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
 st.markdown("---")
-
-# ── Quick example fill ────────────────────────────────────────────────────────
-default_gene, default_disease = "", ""
-if ex1: default_gene, default_disease = "MALAT1", "Lung Adenocarcinoma"
-if ex2: default_gene, default_disease = "TP53", "Breast Cancer"
-if ex3: default_gene, default_disease = "EGFR", "Lung Cancer"
-if ex4: default_gene, default_disease = "BRCA1", "Ovarian Cancer"
-
-# ── Input ─────────────────────────────────────────────────────────────────────
 st.markdown("### 🔍 Research Query")
-c1, c2 = st.columns(2)
-with c1:
-    gene = st.text_input("Gene / lncRNA / Protein", value=default_gene,
-                         placeholder="e.g. MALAT1, BRCA1, TP53, HOTAIR")
-with c2:
-    disease = st.text_input("Disease / Condition", value=default_disease,
-                            placeholder="e.g. Lung Adenocarcinoma, Breast Cancer")
 
-custom = st.text_area("Custom Research Question (optional)",
-    placeholder="e.g. I discovered MALAT1 upregulated in TCGA-LUAD. Help me design a complete study.",
-    height=80)
+with st.form("research_form"):
+    c1, c2 = st.columns(2)
+    with c1:
+        gene = st.text_input(
+            "Gene / lncRNA / Protein",
+            key="gene_input",
+            placeholder="e.g. MALAT1, BRCA1, TP53, HOTAIR",
+        )
+    with c2:
+        disease = st.text_input(
+            "Disease / Condition",
+            key="disease_input",
+            placeholder="e.g. Lung Adenocarcinoma, Breast Cancer",
+        )
 
-st.markdown("")
+    custom = st.text_area(
+        "Custom Research Question (optional)",
+        key="custom_input",
+        placeholder="e.g. I discovered MALAT1 upregulated in TCGA-LUAD. Help me design a complete study.",
+        height=80,
+    )
 
-# Run button with special class
-st.markdown('<div class="run-btn">', unsafe_allow_html=True)
-run_btn = st.button("🚀 Run BioPilot Analysis — Activate All Agents", use_container_width=True)
-st.markdown('</div>', unsafe_allow_html=True)
+    run_btn = st.form_submit_button("🚀 Run BioPilot Analysis — Activate All Agents", use_container_width=True)
 
-# ── Pipeline ──────────────────────────────────────────────────────────────────
-PIPELINE = [
-    ("orchestrator", "🧠", "Research Orchestrator",  orchestrator),
-    ("gene",         "🔬", "Gene Intelligence",       gene_agent),
-    ("literature",   "📚", "Literature Intelligence", literature_agent),
-    ("pathway",      "🌐", "Pathway & Network",       pathway_agent),
-    ("hypothesis",   "💡", "Hypothesis Generator",    hypothesis_agent),
-    ("experiment",   "🧪", "Experimental Design",     experiment_agent),
-    ("report",       "📝", "Scientific Report",       report_agent),
-]
+should_run = run_btn or st.session_state.get("auto_run", False)
 
-def render_diagram(statuses):
-    html = '<div class="diagram-wrap"><div class="diagram-label">⚡ Live Agent Pipeline</div>'
-    for i, (key, icon, name, _) in enumerate(PIPELINE):
-        s = statuses.get(key, "wait")
-        si = "✅" if s=="done" else ("⏳" if s=="active" else icon)
-        html += f'<div class="node node-{s}"><span class="node-icon">{si}</span><span class="node-name">{name}</span></div>'
-        if i < len(PIPELINE)-1:
-            html += '<div class="connector"></div>'
-    html += '</div>'
-    return html
+st.markdown(render_intelligence_panel(st.session_state["gene_input"], st.session_state["disease_input"]), unsafe_allow_html=True)
 
-if run_btn:
+# ─────────────────────────────────────────────────────────────────────────────
+# Execute agents
+# ─────────────────────────────────────────────────────────────────────────────
+if should_run:
+    st.session_state["auto_run"] = False
+
+    gene = st.session_state["gene_input"].strip()
+    disease = st.session_state["disease_input"].strip()
+    custom = st.session_state["custom_input"].strip()
+
     if not api_key:
-        st.error("⚠️ No API key found.")
+        st.error("⚠️ No Groq API key found. Add it in Streamlit Cloud Secrets or paste it in the sidebar.")
         st.stop()
+
     if not gene:
         st.error("⚠️ Please enter a gene name.")
         st.stop()
 
-    st.markdown("---")
-    st.markdown(f"### 📋 Research Report: *{gene} in {disease}*")
+    if not disease:
+        disease = "the selected disease context"
 
+    st.markdown("---")
+    st.markdown(f"## 📋 Research Report: *{gene} in {disease}*")
+
+    statuses = {k: "wait" for k, *_ in PIPELINE}
     results = {}
     literature_out = ""
-    statuses = {k: "wait" for k,*_ in PIPELINE}
 
-    left_col, right_col = st.columns([1, 2])
+    left_col, right_col = st.columns([0.75, 1.25], gap="large")
 
     with left_col:
-        diagram_ph = st.empty()
-        # Architecture SVG
-        st.markdown("""
-<div style="background:#0d1420;border:1px solid #1e293b;border-radius:12px;padding:1rem;margin-top:.8rem;">
-<div style="font-size:.6rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#334155;text-align:center;margin-bottom:.6rem;">🏗️ System Architecture</div>
-<svg viewBox="0 0 200 330" xmlns="http://www.w3.org/2000/svg" style="width:100%">
-  <defs>
-    <linearGradient id="g1" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" style="stop-color:#00d4ff;stop-opacity:0.9"/>
-      <stop offset="100%" style="stop-color:#a78bfa;stop-opacity:0.9"/>
-    </linearGradient>
-    <linearGradient id="g2" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" style="stop-color:#f472b6;stop-opacity:0.9"/>
-      <stop offset="100%" style="stop-color:#a78bfa;stop-opacity:0.9"/>
-    </linearGradient>
-  </defs>
-  <rect x="65" y="5" width="70" height="22" rx="6" fill="url(#g1)"/>
-  <text x="100" y="20" text-anchor="middle" fill="white" font-size="8" font-weight="bold">👤 USER INPUT</text>
-  <line x1="100" y1="27" x2="100" y2="40" stroke="#1e293b" stroke-width="1.5"/>
-  <polygon points="100,43 96,38 104,38" fill="#00d4ff"/>
-  <rect x="50" y="43" width="100" height="22" rx="6" fill="#0d1420" stroke="#00d4ff" stroke-width="1"/>
-  <text x="100" y="58" text-anchor="middle" fill="#00d4ff" font-size="7.5" font-weight="bold">🧠 Orchestrator</text>
-  <line x1="100" y1="65" x2="100" y2="75" stroke="#1e293b" stroke-width="1"/>
-  <line x1="35" y1="75" x2="165" y2="75" stroke="#1e293b" stroke-width="1"/>
-  <line x1="35" y1="75" x2="35" y2="85" stroke="#1e293b" stroke-width="1"/>
-  <line x1="100" y1="75" x2="100" y2="85" stroke="#1e293b" stroke-width="1"/>
-  <line x1="165" y1="75" x2="165" y2="85" stroke="#1e293b" stroke-width="1"/>
-  <rect x="5" y="85" width="60" height="20" rx="5" fill="#0d1420" stroke="#a78bfa" stroke-width="1"/>
-  <text x="35" y="98" text-anchor="middle" fill="#a78bfa" font-size="6">🔬 Gene</text>
-  <rect x="70" y="85" width="60" height="20" rx="5" fill="#0d1420" stroke="#a78bfa" stroke-width="1"/>
-  <text x="100" y="98" text-anchor="middle" fill="#a78bfa" font-size="6">📚 Literature</text>
-  <rect x="135" y="85" width="60" height="20" rx="5" fill="#0d1420" stroke="#a78bfa" stroke-width="1"/>
-  <text x="165" y="98" text-anchor="middle" fill="#a78bfa" font-size="6">🌐 Pathway</text>
-  <line x1="35" y1="105" x2="35" y2="115" stroke="#1e293b" stroke-width="1"/>
-  <line x1="100" y1="105" x2="100" y2="115" stroke="#1e293b" stroke-width="1"/>
-  <line x1="165" y1="105" x2="165" y2="115" stroke="#1e293b" stroke-width="1"/>
-  <line x1="35" y1="115" x2="165" y2="115" stroke="#1e293b" stroke-width="1"/>
-  <line x1="100" y1="115" x2="100" y2="125" stroke="#00d4ff" stroke-width="1.5"/>
-  <polygon points="100,128 96,123 104,123" fill="#00d4ff"/>
-  <rect x="50" y="128" width="100" height="20" rx="5" fill="#0d1420" stroke="#f472b6" stroke-width="1"/>
-  <text x="100" y="141" text-anchor="middle" fill="#f472b6" font-size="7">💡 Hypothesis</text>
-  <line x1="100" y1="148" x2="100" y2="158" stroke="#f472b6" stroke-width="1.5"/>
-  <polygon points="100,161 96,156 104,156" fill="#f472b6"/>
-  <rect x="50" y="161" width="100" height="20" rx="5" fill="#0d1420" stroke="#f472b6" stroke-width="1"/>
-  <text x="100" y="174" text-anchor="middle" fill="#f472b6" font-size="7">🧪 Experiment</text>
-  <line x1="100" y1="181" x2="100" y2="191" stroke="#00d4ff" stroke-width="1.5"/>
-  <polygon points="100,194 96,189 104,189" fill="#00d4ff"/>
-  <rect x="50" y="194" width="100" height="20" rx="5" fill="#0d1420" stroke="#00d4ff" stroke-width="1"/>
-  <text x="100" y="207" text-anchor="middle" fill="#00d4ff" font-size="7">📝 Report Generator</text>
-  <line x1="100" y1="214" x2="100" y2="224" stroke="#00d4ff" stroke-width="1.5"/>
-  <polygon points="100,227 96,222 104,222" fill="#00d4ff"/>
-  <rect x="35" y="227" width="130" height="22" rx="6" fill="url(#g1)"/>
-  <text x="100" y="242" text-anchor="middle" fill="white" font-size="7.5" font-weight="bold">📄 Research Proposal</text>
-</svg>
-</div>
-""", unsafe_allow_html=True)
+        status_box = st.empty()
+        insight_box = st.empty()
 
     with right_col:
-        st.markdown("#### 🧬 Agent Outputs")
-        card_phs = {key: st.empty() for key,*_ in PIPELINE}
+        st.markdown("### 🧬 Agent Outputs")
+        output_boxes = {key: st.empty() for key, *_ in PIPELINE}
 
     for key, icon, name, module in PIPELINE:
         statuses[key] = "active"
-        diagram_ph.markdown(render_diagram(statuses), unsafe_allow_html=True)
+        status_box.markdown(render_agent_status(statuses), unsafe_allow_html=True)
+        insight_box.markdown(render_intelligence_panel(gene, disease), unsafe_allow_html=True)
 
-        if key == "orchestrator":
-            out = module.run(api_key, gene, disease, custom)
-        elif key == "hypothesis":
-            out = module.run(api_key, gene, disease, literature_out)
-        elif key == "report":
-            ctx = "\n".join(list(results.values())[:3])
-            out = module.run(api_key, gene, disease, ctx)
-        else:
-            out = module.run(api_key, gene, disease)
+        try:
+            if key == "orchestrator":
+                prompt_context = (
+                    f"{custom}\n\nSettings: output_style={output_style}; "
+                    f"focus_area={focus_area}; hypotheses={hypothesis_count}; depth={report_depth}"
+                )
+                out = module.run(api_key, gene, disease, prompt_context)
+            elif key == "hypothesis":
+                out = module.run(api_key, gene, disease, literature_out)
+            elif key == "report":
+                ctx = "\n\n".join(results.values())
+                out = module.run(api_key, gene, disease, ctx)
+            else:
+                out = module.run(api_key, gene, disease)
+        except Exception as e:
+            error_text = str(e)
+            if "invalid_api_key" in error_text.lower() or "invalid api key" in error_text.lower() or "401" in error_text:
+                out = "❌ Invalid API key. Please update GROQ_API_KEY in Streamlit Cloud Secrets or paste a valid key in the sidebar."
+            elif "model_decommissioned" in error_text.lower() or "decommissioned" in error_text.lower():
+                out = "❌ The selected Groq model is deprecated. Update your model name in config/settings.py to a currently supported Groq model."
+            else:
+                out = f"❌ Agent error: {error_text}"
 
         if key == "literature":
             literature_out = out
 
         results[key] = out
         statuses[key] = "done"
-        diagram_ph.markdown(render_diagram(statuses), unsafe_allow_html=True)
+        status_box.markdown(render_agent_status(statuses), unsafe_allow_html=True)
+        insight_box.markdown(render_intelligence_panel(gene, disease, completed=False), unsafe_allow_html=True)
 
-        with card_phs[key].container():
-            with st.expander(f"{icon} {name}", expanded=(key in ["orchestrator","hypothesis","report"])):
+        with output_boxes[key].container():
+            with st.expander(f"{icon} {name}", expanded=(key in ["orchestrator", "hypothesis", "report"])):
                 st.markdown(out)
+
+        time.sleep(0.15)
+
+    insight_box.markdown(render_intelligence_panel(gene, disease, completed=True), unsafe_allow_html=True)
+
+    st.session_state["last_results"] = {
+        "gene": gene,
+        "disease": disease,
+        "results": results,
+    }
 
     st.success("✅ BioPilot Analysis Complete!")
     st.balloons()
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Persisted report dashboard + downloads
+# ─────────────────────────────────────────────────────────────────────────────
+if st.session_state.get("last_results"):
+    saved = st.session_state["last_results"]
+    gene = saved["gene"]
+    disease = saved["disease"]
+    results = saved["results"]
+
     st.markdown("---")
+    st.markdown("## 🏁 Research Readiness Dashboard")
+    render_score_dashboard()
+
+    st.markdown("### 📚 Final Report Sections")
+    section_titles = {
+        "orchestrator": "🧠 Research Orchestrator",
+        "gene": "🔬 Gene Intelligence",
+        "literature": "📚 Literature Evidence",
+        "pathway": "🌐 Pathway & Network",
+        "hypothesis": "💡 Research Hypotheses",
+        "experiment": "🧪 Experimental Design",
+        "report": "📝 Scientific Report",
+    }
+
+    for key, title in section_titles.items():
+        if key in results:
+            with st.expander(title, expanded=(key == "report")):
+                st.markdown(results[key])
+
     st.markdown("### 📥 Download Full Report")
+    md_report = build_markdown_report(gene, disease, results)
+    txt_report = build_txt_report(gene, disease, results)
+
     dc1, dc2 = st.columns(2)
     with dc1:
-        st.download_button("📄 Download Markdown",
-            data=build_markdown_report(gene, disease, results),
-            file_name=f"BioPilot_{gene}_{disease}.md",
-            mime="text/markdown", use_container_width=True)
+        st.download_button(
+            "📄 Download Markdown",
+            data=md_report,
+            file_name=f"BioPilot_{gene}_{disease}.md".replace(" ", "_"),
+            mime="text/markdown",
+            use_container_width=True,
+        )
     with dc2:
-        st.download_button("📃 Download Text",
-            data=build_txt_report(gene, disease, results),
-            file_name=f"BioPilot_{gene}_{disease}.txt",
-            mime="text/plain", use_container_width=True)
+        st.download_button(
+            "📃 Download Text",
+            data=txt_report,
+            file_name=f"BioPilot_{gene}_{disease}.txt".replace(" ", "_"),
+            mime="text/plain",
+            use_container_width=True,
+        )

@@ -421,14 +421,22 @@ with st.sidebar:
     stored_key = get_api_key_from_all_sources()
     api_key = stored_key or st.session_state.get("cached_api_key", "")
 
-    connection_mode = "Live" if api_key else "Setup needed"
-    st.markdown(f"""
+    st.markdown("""
     <div class="session-card">
-      <div class="session-title">🟢 Research Session</div>
-      <div class="session-row"><span>Status</span><b>{'Ready' if api_key else 'Waiting'}</b></div>
-      <div class="session-row"><span>Agents</span><b>7 active</b></div>
-      <div class="session-row"><span>Mode</span><b>{connection_mode}</b></div>
-      <div class="session-row"><span>Output</span><b>Proposal</b></div>
+      <div class="session-title">📊 BioPilot AI</div>
+      <div style="color:#e2e8f0;font-size:.82rem;font-weight:700;margin:.35rem 0 .55rem;">
+        Autonomous Biomedical Research Platform
+      </div>
+      <div style="color:#94a3b8;font-size:.78rem;line-height:1.75;">
+        🧠 <b style="color:#cbd5e1;">7 Specialized AI Agents</b><br>
+        🔬 <b style="color:#cbd5e1;">10+ Integrated Analysis Modules</b><br>
+        📄 <b style="color:#cbd5e1;">Publication-Ready Reports</b><br>
+        🧬 <b style="color:#cbd5e1;">Biomedical Research Assistant</b>
+      </div>
+      <div style="border-top:1px solid rgba(148,163,184,.12);margin:.75rem 0 .55rem;"></div>
+      <div style="font-size:.72rem;color:#64748b;line-height:1.55;">
+        Transform one gene and one disease into a complete research proposal through autonomous AI collaboration.
+      </div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -704,3 +712,4 @@ if st.session_state.last_results:
             mime="text/plain",
             use_container_width=True,
         )
+

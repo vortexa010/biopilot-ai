@@ -423,11 +423,8 @@ with st.sidebar:
 
     st.markdown("""
     <div class="session-card">
-      <div class="session-title">📊 BioPilot AI</div>
-      <div style="color:#e2e8f0;font-size:.82rem;font-weight:700;margin:.35rem 0 .55rem;">
-        Autonomous Biomedical Research Platform
-      </div>
-      <div style="color:#94a3b8;font-size:.78rem;line-height:1.75;">
+      <div class="session-title">📊 Platform Snapshot</div>
+      <div style="color:#94a3b8;font-size:.78rem;line-height:1.75;margin-top:.55rem;">
         🧠 <b style="color:#cbd5e1;">7 Specialized AI Agents</b><br>
         🔬 <b style="color:#cbd5e1;">10+ Integrated Analysis Modules</b><br>
         📄 <b style="color:#cbd5e1;">Publication-Ready Reports</b><br>
@@ -712,4 +709,3 @@ if st.session_state.last_results:
             mime="text/plain",
             use_container_width=True,
         )
-

@@ -1,6 +1,6 @@
 # 🧬 BioPilot AI
 
-> **Autonomous Biomedical Research Co-Scientist**
+> **AI Research Copilot for Biomedical Discovery**
 >
 > Transform a single **gene + disease query** into a complete biomedical research proposal using multiple AI agents.
 
@@ -10,7 +10,8 @@
 ![Hackathon](https://img.shields.io/badge/Microsoft-Agents%20League%202026-purple)
 
 ---
-#  Platform Preview
+
+#   BioPilot AI in Action
 
 ##  Home Interface
 
@@ -29,6 +30,13 @@
 ![Report](assets/report.png)
 
 ---
+
+## 🎥 Demo
+
+Watch BioPilot AI transform a single gene and disease query into a complete biomedical research proposal.
+
+(Video Link)
+
 
 #  Overview
 
@@ -57,6 +65,15 @@ BioPilot AI generates:
 
 ---
 
+## Why BioPilot?
+
+Traditional AI chatbots answer questions.
+
+BioPilot AI performs structured scientific reasoning through seven specialized AI agents that collaboratively generate a publication-style biomedical research proposal.
+
+It acts as an autonomous research co-scientist rather than a conversational assistant.
+
+
 # Features
 
 ✅ Multi-agent AI architecture
@@ -80,21 +97,20 @@ BioPilot AI generates:
 # 7-Agent Architecture
 
 ```
-
-                 User Query
-                      │
-                      ▼
-         🧠 Research Orchestrator
-             ╱      │       ╲
-            ▼       ▼        ▼
-      🧬 Gene   📚 Literature  🌐 Pathway
-             ╲      │       ╱
-                  ▼
-         💡 Hypothesis Generator
-                  ▼
-         🧪 Experimental Design
-                  ▼
-         📄 Report Generator
+User Query
+      │
+      ▼
+Research Orchestrator
+ ┌────┼─────┐
+ │    │     │
+Gene Literature Pathway
+      │
+      ▼
+Hypothesis
+      ▼
+Experiment
+      ▼
+Scientific Report
 
 ```
 
@@ -150,6 +166,11 @@ Output
 - Hypothesis generation
 
 ---
+
+## Key Innovation
+
+Instead of relying on one general-purpose LLM, BioPilot AI coordinates seven specialized AI agents that independently analyze biological context, literature evidence, pathways, hypotheses, experimental design, and reporting before synthesizing a unified research proposal.
+
 
 # ⚡ Running Locally
 
